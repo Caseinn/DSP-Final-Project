@@ -4,7 +4,7 @@
 
 ## Anggota Kelompok
 
-| Nama                          | NIM        | ID GitHub  |
-|-------------------------------|------------|------------|
-| Dito Rifki Irawan              | 122140153  | @Caseinn   |
-| Zefanya Danovanta Tarigan      | 122140101  | @danovantaa|
+| Nama                          | NIM        | ID GitHub            |
+|-------------------------------|------------|----------------------|
+| Dito Rifki Irawan              | 122140153  | [@Caseinn](https://github.com/Caseinn)  |
+| Zefanya Danovanta Tarigan      | 122140101  | [@danovantaa](https://github.com/danovantaa) |
