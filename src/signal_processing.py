@@ -1,21 +1,9 @@
-# src/signal_processing.py
-"""
-Modul pemrosesan sinyal untuk ekstraksi sinyal rPPG dan pernapasan.
-"""
 import numpy as np
-import scipy.signal as signal
+from scipy.signal import butter, filtfilt, find_peaks
 
 def cpu_POS(signal, fps):
-    """
-    Process sinyal photoplethysmography (rPPG) menggunakan algoritma POS.
-    Parameters:
-        signal (np.ndarray): Input RGB signal (bentuk: [estimators, 3, frames])
-        fps (int): Frames per second dari video
-    Returns:
-        np.ndarray: Sinyal rPPG yang diproses (bentuk: [estimators, frames])
-    """
     eps = 1e-9
-    X = signal
+    X = signal  # shape: [estimators, 3, frames]
     e, c, f = X.shape
     w = int(1.6 * fps)
     P = np.array([[0, 1, -1], [-2, 1, 1]])
@@ -39,45 +27,41 @@ def cpu_POS(signal, fps):
         H[:, m:n+1] = np.add(H[:, m:n+1], Hnm)
     return H
 
-def bandpass_filter(data, lowcut=0.9, highcut=2.4, fs=30, order=5):
-    """
-    Terapkan Butterworth bandpass filter untuk pemrosesan sinyal rPPG.
-    Dirancang untuk deteksi denyut jantung:
-    - Rentang denyut jantung manusia: 0.7–2.5 Hz (42–150 BPM)
-    - Rentang terpilih (0.9–2.4 Hz) menghindari gerakan (<0.7 Hz) 
-      dan noise pengukuran (>2.5 Hz)
-    - Zero-phase filtering menjaga bentuk gelombang
-    Parameters:
-        data (np.ndarray): Input signal
-        lowcut (float): Frekuensi batas bawah (Hz)
-        highcut (float): Frekuensi batas atas (Hz)
-        fs (int): Frekuensi sampling (Hz)
-        order (int): Orde filter (dikurangi dari default 5 untuk meminimalkan delay)
-    Returns:
-        np.ndarray: Sinyal yang difilter dengan komponen fisiologis
-    """
+def butter_bandpass(lowcut, highcut, fs, order=3):
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
-    b, a = signal.butter(order, [low, high], btype='band')
-    return signal.filtfilt(b, a, data)
+    return butter(order, [low, high], btype='band')
 
-def lowpass_filter(data, cutoff=0.5, fs=30, order=3):
+def apply_bandpass_filter(data, lowcut, highcut, fs):
+    b, a = butter_bandpass(lowcut, highcut, fs)
+    return filtfilt(b, a, data)
+
+def estimate_bpm(signal, fps, min_distance_sec=0.5):
     """
-    Terapkan Butterworth low-pass filter untuk pemrosesan sinyal pernapasan.
-    Justifikasi laju pernapasan:
-    - Laju pernapasan dewasa normal: 0.1–0.5 Hz (6–30 napas/menit)
-    - Cut-off 0.5 Hz mempertahankan semua laju pernapasan fisiologis
-    - Frekuensi lebih tinggi merepresentasikan gerakan tubuh
-    Parameters:
-        data (np.ndarray): Input signal
-        cutoff (float): Frekuensi cut-off (Hz)
-        fs (int): Frekuensi sampling (Hz)
-        order (int): Orde filter (3 memberikan roll-off yang cukup)
+    Estimate heart rate (BPM) from the signal using peak detection.
+
+    Args:
+        signal (np.ndarray): 1D filtered rPPG signal
+        fps (int): Frames per second (sampling rate)
+        min_distance_sec (float): Minimum time between heartbeats in seconds. 
+                                  Default is 0.5s (for up to 120 BPM)
+
     Returns:
-        np.ndarray: Sinyal pernapasan yang difilter
+        float or None: Estimated BPM or None if no peaks detected
     """
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = signal.butter(order, normal_cutoff, btype='low')
-    return signal.filtfilt(b, a, data)
+    # Minimum distance between peaks in samples
+    min_distance = int(min_distance_sec * fps)
+
+    # Detect peaks (use a dynamic threshold if needed)
+    peaks, _ = find_peaks(signal, distance=min_distance)
+
+    if len(peaks) < 2:
+        return None  # Not enough peaks to estimate BPM
+
+    # Compute duration of the signal in minutes
+    duration_min = len(signal) / fps / 60.0  # seconds → minutes
+
+    # Estimate BPM from peak count
+    bpm = len(peaks) / duration_min
+    return bpm
