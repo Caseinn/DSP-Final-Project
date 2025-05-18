@@ -5,9 +5,9 @@ import numpy as np
 import mediapipe as mp
 import time
 from countdown import start_countdown
-from utils import FACE_REGIONS, extract_face_roi_rgb, plot_signal, interpolate_nans
-from visualizer import draw_face_roi
-from signal_processing import apply_bandpass_filter, cpu_POS, estimate_bpm
+from utils import FACE_REGIONS, extract_face_roi_rgb, extract_shoulder_distance, plot_signal, interpolate_nans
+from visualizer import draw_face_roi, draw_shoulders
+from signal_processing import apply_bandpass_filter, cpu_POS, estimate_bpm, estimate_brpm
 
 # Init Mediapipe
 mp_face_mesh = mp.solutions.face_mesh
@@ -20,6 +20,7 @@ FRAME_COUNT = FPS * DURATION
 
 # Data Storage
 rppg_rgb_frames = []
+resp_raw = []
 
 # Countdown
 start_countdown(3)
@@ -59,6 +60,18 @@ try:
             else:
                 rppg_rgb_frames.append(np.array([np.nan, np.nan, np.nan]))
 
+            # Respiratory signal
+            if pose_result.pose_landmarks:
+                landmarks_pose = pose_result.pose_landmarks.landmark
+                distance = extract_shoulder_distance(landmarks_pose)
+                if distance:
+                    resp_raw.append(distance)
+                else:
+                    resp_raw.append(np.nan)
+                draw_shoulders(frame, landmarks_pose)
+            else:
+                resp_raw.append(np.nan)
+
             frame_number = len(rppg_rgb_frames)
             progress_text = f"{frame_number}/{FRAME_COUNT}"
             cv2.putText(frame, 
@@ -84,6 +97,7 @@ finally:
 
 # Convert lists to numpy arrays
 rppg_rgb_frames = np.array(rppg_rgb_frames)  # Shape: [frames, 3]
+resp_raw = np.array(resp_raw)               # Shape: [frames]
 
 # Check if no valid data collected
 if len(rppg_rgb_frames) == 0 or np.all(np.isnan(rppg_rgb_frames)):
@@ -102,6 +116,7 @@ pos_signal = H[0]  # shape: [frames]
 
 # Post-processing
 rppg_filtered = apply_bandpass_filter(pos_signal, 0.9, 2.4, FPS)      # rPPG (heart rate)
+resp_filtered = apply_bandpass_filter(resp_raw, 0.1, 0.5, FPS)        # Respiratory
 
 # Estimate BPM and BRPM
 bpm = estimate_bpm(rppg_filtered, FPS, min_distance_sec=0.4)
@@ -110,5 +125,12 @@ if bpm:
 else:
     print("[WARN] Unable to estimate BPM.")
 
-plot_signal(rppg_filtered, FPS, bpm=bpm, output_dir="output", raw_pos=pos_signal)
+brpm_peaks = estimate_brpm(resp_filtered, FPS)
+
+if brpm_peaks:
+    print(f"[INFO] BRPM (Peaks): {brpm_peaks:.2f} breaths/min")
+else:
+    print("[WARN] Unable to estimate BRPM (Peaks).")
+
+plot_signal(rppg_filtered, resp_filtered, FPS, bpm=bpm, brpm=brpm_peaks, output_dir="output", raw_pos=pos_signal)
 

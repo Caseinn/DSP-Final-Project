@@ -22,7 +22,14 @@ def extract_face_roi_rgb(frame, landmarks, region_ids):
         pixels.append(frame[y, x])
     return np.mean(pixels, axis=0)  # R, G, B average
 
-def plot_signal(rppg_signal, fps, bpm=None, output_dir="output", raw_pos=None):
+def extract_shoulder_distance(landmarks):
+    left = landmarks[11]  # Left shoulder
+    right = landmarks[12]  # Right shoulder
+    if left.visibility > 0.5 and right.visibility > 0.5:
+        return np.linalg.norm(np.array([left.x, left.y]) - np.array([right.x, right.y]))
+    return None
+
+def plot_signal(rppg_signal, resp_signal, fps, bpm=None, brpm=None, output_dir="output", raw_pos=None):
     """
     Plot rPPG and respiration signals in subplots and save with timestamp.
     Optionally overlays raw POS signal.
@@ -33,8 +40,9 @@ def plot_signal(rppg_signal, fps, bpm=None, output_dir="output", raw_pos=None):
     filename = f"{output_dir}/{timestamp}_signals.png"
 
     t = np.arange(len(rppg_signal)) / fps
+    t_resp = np.arange(len(resp_signal)) / fps
 
-    fig, axs = plt.subplots(2 if raw_pos is not None else 1, 1, figsize=(14, 10))
+    fig, axs = plt.subplots(3 if raw_pos is not None else 2, 1, figsize=(14, 10))
 
     axs[0].plot(t, raw_pos, color='gray', label="Raw POS")
     axs[0].set_title("Raw POS Signal (Before Filtering)")
@@ -49,6 +57,14 @@ def plot_signal(rppg_signal, fps, bpm=None, output_dir="output", raw_pos=None):
     axs[1].set_ylabel("Amplitude")
     axs[1].legend()
     axs[1].grid(True)
+
+    axs[2].plot(t_resp, resp_signal, color='blue')
+    axs[2].set_title(f"Respiratory Signal - Estimated BRPM: {brpm:.2f} breaths/min" if brpm else "Respiration")
+    axs[2].set_xlabel("Time (s)")
+    axs[2].set_ylabel("Distance")
+    axs[2].grid(True)
+
+
 
     fig.suptitle(f"Physiological Signals - {timestamp}", fontsize=15)
     plt.tight_layout(rect=[0, 0, 1, 0.95])

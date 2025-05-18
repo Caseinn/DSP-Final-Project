@@ -65,3 +65,10 @@ def estimate_bpm(signal, fps, min_distance_sec=0.5):
     # Estimate BPM from peak count
     bpm = len(peaks) / duration_min
     return bpm
+
+def estimate_brpm(signal, fps, min_distance_sec=1.5):
+    distance = int(min_distance_sec * fps)  # Ensure peaks are spaced apart
+    peaks, _ = find_peaks(signal, distance=distance)
+    duration_min = len(signal) / fps / 60.0
+    brpm = len(peaks) / duration_min if duration_min > 0 else None
+    return brpm
