@@ -64,8 +64,6 @@ def plot_signal(rppg_signal, resp_signal, fps, bpm=None, brpm=None, output_dir="
     axs[2].set_ylabel("Distance")
     axs[2].grid(True)
 
-
-
     fig.suptitle(f"Physiological Signals - {timestamp}", fontsize=15)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(filename)
@@ -108,3 +106,29 @@ def plot_to_image(fig):
     image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
     plt.close(fig)
     return image_rgb
+
+def draw_face_roi(frame, landmarks, face_regions, alpha=0.4):
+    h, w, _ = frame.shape
+    overlay = frame.copy()
+    color = (0, 255, 0)
+
+    for region_name, idxs in face_regions.items():
+        pts = []
+        for idx in idxs:
+            x = int(landmarks[idx].x * w)
+            y = int(landmarks[idx].y * h)
+            pts.append((x, y))
+        if len(pts) >= 3:
+            pts_array = np.array(pts, dtype=np.int32)
+            hull = cv2.convexHull(pts_array)
+            cv2.fillConvexPoly(overlay, hull, color)
+
+    cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+def draw_shoulders(frame, landmarks):
+    h, w, _ = frame.shape
+    for i in [11, 12]:
+        if landmarks[i].visibility > 0.5:
+            x = int(landmarks[i].x * w)
+            y = int(landmarks[i].y * h)
+            cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
