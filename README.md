@@ -10,4 +10,5 @@
 
 | Week | Progress |
 |:----:|----------|
-| 1    | - Mengintegrasikan pipeline video capture dan signal processing untuk ekstraksi rPPG.<br>- Mengimplementasikan algoritma POS untuk ekstraksi sinyal rPPG<br>- Membuat face region tracking dengan MediaPipe<br>- Menambahkan signal processing dengan bandpass filtering<br>- Menyertakan visualisasi hasil heart rate	
+| 1    | - Mengintegrasikan pipeline video capture dan signal processing untuk ekstraksi rPPG.<br>- Mengimplementasikan algoritma POS untuk ekstraksi sinyal rPPG<br>- Membuat face region tracking dengan MediaPipe<br>- Menambahkan signal processing dengan bandpass filtering<br>- Menyertakan visualisasi hasil heart rate
+| 2    | - Mengintegrasikan pipeline video capture dan signal processing untuk ekstraksi Sinyal Respirasi.<br>- Menambahkan fitur **live signal monitoring** secara real-time.<br>- Mengembangkan tampilan antarmuka pengguna (GUI) untuk visualisasi dan interaksi. |
