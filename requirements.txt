@@ -1,6 +1,6 @@
-opencv-python
 numpy
+opencv-python
+mediapipe==0.10.9
+pyqt5
+pyqtgraph
 scipy
-pandas
-matplotlib
-mediapipe

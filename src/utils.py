@@ -1,7 +1,5 @@
 # src/utils.py
 
-import matplotlib.pyplot as plt
-import time
 import numpy as np
 from datetime import datetime
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -14,6 +12,17 @@ FACE_REGIONS = {
 }
 
 def extract_face_roi_rgb(frame, landmarks, region_ids):
+    """
+    Mengekstrak nilai rata-rata RGB dari wilayah tertentu di wajah berdasarkan landmark MediaPipe.
+    
+    Args:
+        frame (np.ndarray): Gambar frame dari kamera
+        landmarks (list): Daftar landmark wajah dari MediaPipe
+        region_ids (list): ID landmark yang merepresentasikan area tertentu
+    
+    Returns:
+        np.ndarray: Nilai rata-rata R, G, B dari area tersebut
+    """
     h, w, _ = frame.shape
     pixels = []
     for idx in region_ids:
@@ -22,95 +31,43 @@ def extract_face_roi_rgb(frame, landmarks, region_ids):
         pixels.append(frame[y, x])
     return np.mean(pixels, axis=0)  # R, G, B average
 
-def extract_shoulder_distance(landmarks):
-    left = landmarks[11]  # Left shoulder
-    right = landmarks[12]  # Right shoulder
-    if left.visibility > 0.5 and right.visibility > 0.5:
-        return np.linalg.norm(np.array([left.x, left.y]) - np.array([right.x, right.y]))
-    return None
-
-def plot_signal(rppg_signal, resp_signal, fps, bpm=None, brpm=None, output_dir="output", raw_pos=None):
+def extract_shoulder_distance(landmarks, min_visibility=0.3):
     """
-    Plot rPPG and respiration signals in subplots and save with timestamp.
-    Optionally overlays raw POS signal.
-    """
-    from datetime import datetime
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{output_dir}/{timestamp}_signals.png"
-
-    t = np.arange(len(rppg_signal)) / fps
-    t_resp = np.arange(len(resp_signal)) / fps
-
-    fig, axs = plt.subplots(3 if raw_pos is not None else 2, 1, figsize=(14, 10))
-
-    axs[0].plot(t, raw_pos, color='gray', label="Raw POS")
-    axs[0].set_title("Raw POS Signal (Before Filtering)")
-    axs[0].set_xlabel("Time (s)")
-    axs[0].set_ylabel("Amplitude")
-    axs[0].grid(True)
-
-    axs[1].plot(t, rppg_signal, color='green', label="Filtered POS")
-    axs[1].plot(t, raw_pos, color='gray', linestyle='--', alpha=0.6, label="Raw POS")
-    axs[1].set_title(f"rPPG Signal - Estimated Heart Rate: {bpm:.2f} BPM" if bpm else "rPPG Signal")
-    axs[1].set_xlabel("Time (s)")
-    axs[1].set_ylabel("Amplitude")
-    axs[1].legend()
-    axs[1].grid(True)
-
-    axs[2].plot(t_resp, resp_signal, color='blue')
-    axs[2].set_title(f"Respiratory Signal - Estimated BRPM: {brpm:.2f} breaths/min" if brpm else "Respiration")
-    axs[2].set_xlabel("Time (s)")
-    axs[2].set_ylabel("Distance")
-    axs[2].grid(True)
-
-    fig.suptitle(f"Physiological Signals - {timestamp}", fontsize=15)
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig(filename)
-    plt.close()
-    print(f"[INFO] Plot saved as {filename}")
-
-
-def interpolate_nans(signal):
-    """
-    Interpolate NaN values in a 1D or 2D array using linear interpolation.
-
+    Menghitung jarak 3D antara kedua bahu (X, Y, Z) jika visibilitas cukup.
+    
     Args:
-        signal (np.ndarray): Input signal with NaNs.
+        landmarks (list): Landmark pose dari MediaPipe
+        min_visibility (float): Ambang minimum visibilitas bahu
 
     Returns:
-        np.ndarray: Signal with NaNs replaced via interpolation.
+        float or None: Jarak 3D antar bahu, atau None jika visibilitas terlalu rendah
     """
-    if signal.ndim == 1:
-        nans = np.isnan(signal)
-        if not np.any(nans):
-            return signal
-        x = ~nans
-        xp = np.where(x)[0]
-        fp = signal[x]
-        interp = np.interp(np.where(nans)[0], xp, fp)
-        result = signal.copy()
-        result[nans] = interp
-        return result
-    elif signal.ndim == 2:
-        return np.vstack([interpolate_nans(row) for row in signal])
-    else:
-        raise ValueError("Signal must be 1D or 2D")
-    
-def plot_to_image(fig):
-    canvas = FigureCanvas(fig)
-    canvas.draw()
-    buf = canvas.buffer_rgba()
-    w, h = canvas.get_width_height()
-    image = np.frombuffer(buf, dtype=np.uint8).reshape((h, w, 4))  # RGBA
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
-    plt.close(fig)
-    return image_rgb
+    left = landmarks[11]
+    right = landmarks[12]
+    if left.visibility > min_visibility and right.visibility > min_visibility:
+        left_xyz = np.array([left.x, left.y, left.z])
+        right_xyz = np.array([right.x, right.y, right.z])
+        return np.linalg.norm(left_xyz - right_xyz)
+    return None
+
 
 def draw_face_roi(frame, landmarks, face_regions, alpha=0.4):
+    """
+    Menggambar area ROI wajah pada frame video sebagai overlay transparan.
+    
+    Args:
+        frame (np.ndarray): Frame video yang sedang diproses
+        landmarks (list): Landmark wajah dari MediaPipe
+        face_regions (dict): Wilayah ROI wajah dengan daftar ID landmark
+        alpha (float): Transparansi overlay (0-1)
+        
+    Returns:
+        None: Fungsi ini mengubah frame secara langsung
+    """
     h, w, _ = frame.shape
     overlay = frame.copy()
-    color = (0, 255, 0)
+    fill_color = (0, 255, 0)
+    outline_color = (0, 100, 0)
 
     for region_name, idxs in face_regions.items():
         pts = []
@@ -121,11 +78,22 @@ def draw_face_roi(frame, landmarks, face_regions, alpha=0.4):
         if len(pts) >= 3:
             pts_array = np.array(pts, dtype=np.int32)
             hull = cv2.convexHull(pts_array)
-            cv2.fillConvexPoly(overlay, hull, color)
+            cv2.fillConvexPoly(overlay, hull, fill_color)
+            cv2.polylines(overlay, [hull], isClosed=True, color=outline_color, thickness=2)
 
     cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
 
 def draw_shoulders(frame, landmarks):
+    """
+    Menggambar titik bahu pada frame video jika terdeteksi.
+    
+    Args:
+        frame (np.ndarray): Frame video
+        landmarks (list): Landmark tubuh dari MediaPipe
+        
+    Returns:
+        None: Fungsi ini mengubah frame secara langsung
+    """
     h, w, _ = frame.shape
     for i in [11, 12]:
         if landmarks[i].visibility > 0.5:
