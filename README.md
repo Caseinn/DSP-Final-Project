@@ -2,7 +2,7 @@
 **Dosen Pengampu**: Martin Clinton Tosima Manullang, S.T., M.T.
 
 ## Deskripsi Proyek
-
+![Thumbnail](https://i.imgur.com/gAJ2lQO.jpeg)
 Proyek ini bertujuan untuk membangun sebuah sistem **pendeteksi sinyal fisiologis** berupa **sinyal denyut jantung (rPPG)** dan **sinyal respirasi (pernapasan)** secara **real-time** melalui **video webcam** tanpa kontak langsung (contactless). Sistem ini menggabungkan beberapa komponen utama:
 
 - **Capture Video** menggunakan webcam
